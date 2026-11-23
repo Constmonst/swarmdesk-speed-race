@@ -84,6 +84,8 @@ export function checkLimits(search, comments) {
   if (!Number.isInteger(mine) || mine < 0 || !Array.isArray(comments)) {
     refuse('the limits could not be read');
   }
+  // GitHub says so when a search timed out. A count that may be too low is not used.
+  if (search.incomplete_results !== false) refuse('the limits could not be read: push again');
   if (mine > MAX_OPEN) {
     refuse(`you have ${mine} open pull requests: at most ${MAX_OPEN} are judged at a time`);
   }

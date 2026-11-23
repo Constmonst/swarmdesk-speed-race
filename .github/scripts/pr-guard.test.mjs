@@ -67,7 +67,7 @@ test('the step must be open and belong to the target', () => {
   assert.throws(() => checkStep({}, 12, 'crc32'), /no step list/);
 });
 
-const mine = (n) => ({ total_count: n });
+const mine = (n) => ({ total_count: n, incomplete_results: false });
 const others = (n) => Array.from({ length: n }, () => ({ user: { login: 'grace' } }));
 const verdicts = (n) => Array.from({ length: n }, () => ({ user: { login: 'github-actions[bot]' } }));
 
@@ -90,4 +90,6 @@ test("other people's comments never block a pull request", () => {
 test('limits that cannot be read are refused', () => {
   assert.throws(() => checkLimits({}, []), /could not be read/);
   assert.throws(() => checkLimits(mine(1), {}), /could not be read/);
+  assert.throws(() => checkLimits({ total_count: 0, incomplete_results: true }, []), /could not be read/);
+  assert.throws(() => checkLimits({ total_count: 0 }, []), /could not be read/);
 });

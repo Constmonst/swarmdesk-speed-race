@@ -52,7 +52,9 @@ meta=$(jq -c --arg holder "$holder_blob" \
 
 # One author may not fill the queue, and one pull request is not judged for ever. Both counts
 # depend only on what this author did, so nobody else can use them to block a pull request:
-# the author's own open pull requests, and the verdicts this workflow posted here.
+# the author's own open pull requests, and the verdicts this workflow posted here. The verdict
+# count reads at most 1000 comments and is not refused beyond that on purpose: a refusal would
+# let anyone block a pull request by commenting on it.
 curl -sSf --proto '=https' --max-redirs 0 --max-filesize 2000000 \
   -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
   -H "X-GitHub-Api-Version: 2022-11-28" -o "$OUT/api/mine.json" \
