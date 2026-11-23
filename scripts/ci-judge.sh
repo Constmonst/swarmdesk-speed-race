@@ -50,8 +50,23 @@ holder_blob=$(git hash-object "targets/$target/holder.rs")
 meta=$(jq -c --arg holder "$holder_blob" \
   '{target, step, head_sha: .head, author, candidate_blob: .blob, holder_blob: $holder}' <<<"$guard")
 
-# One author may not fill the queue, and one pull request is not judged for ever.
-get "pulls?state=open&per_page=100" "$OUT/api/open.json"
+# One author may not fill the queue, and one pull request is not judged for ever. Both
+# counts must be complete: a list that may be cut off is refused, not trusted.
+pages=()
+for page in 1 2 3 4 5; do
+  get "pulls?state=open&per_page=100&page=$page" "$OUT/api/open-$page.json"
+  pages+=("$OUT/api/open-$page.json")
+  [ "$(jq length "$OUT/api/open-$page.json")" = 100 ] || break
+done
+jq -s add "${pages[@]}" > "$OUT/api/open.json"
+if [ "$(jq length "$OUT/api/open.json")" -ge 500 ]; then
+  write REJECTED "too many pull requests are open to count yours: try again later" "$meta"
+  exit 0
+fi
+if [ "$(jq -r '.comments // 0 | if type == "number" then . else 101 end' "$OUT/api/pr.json")" -gt 100 ]; then
+  write REJECTED "this pull request has more than 100 comments: open a new one" "$meta"
+  exit 0
+fi
 get "issues/$PR/comments?per_page=100" "$OUT/api/comments.json"
 if ! limits=$(node .github/scripts/pr-guard.mjs limits "$OUT/api/open.json" "$OUT/api/comments.json" "$author"); then
   write REJECTED "$(jq -r '.refused // "the pull request was refused"' <<<"$limits")" "$meta"
