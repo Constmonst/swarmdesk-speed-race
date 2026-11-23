@@ -50,25 +50,22 @@ holder_blob=$(git hash-object "targets/$target/holder.rs")
 meta=$(jq -c --arg holder "$holder_blob" \
   '{target, step, head_sha: .head, author, candidate_blob: .blob, holder_blob: $holder}' <<<"$guard")
 
-# One author may not fill the queue, and one pull request is not judged for ever. Both
-# counts must be complete: a list that may be cut off is refused, not trusted.
+# One author may not fill the queue, and one pull request is not judged for ever. Both counts
+# depend only on what this author did, so nobody else can use them to block a pull request:
+# the author's own open pull requests, and the verdicts this workflow posted here.
+curl -sSf --proto '=https' --max-redirs 0 --max-filesize 2000000 \
+  -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" -o "$OUT/api/mine.json" \
+  "$API/search/issues?q=repo:$REPO+is:pr+is:open+author:$author&per_page=1"
+total=$(jq -r '.comments // 0 | if type == "number" then . else 0 end' "$OUT/api/pr.json")
 pages=()
-for page in 1 2 3 4 5; do
-  get "pulls?state=open&per_page=100&page=$page" "$OUT/api/open-$page.json"
-  pages+=("$OUT/api/open-$page.json")
-  [ "$(jq length "$OUT/api/open-$page.json")" = 100 ] || break
+for page in 1 2 3 4 5 6 7 8 9 10; do
+  get "issues/$PR/comments?per_page=100&page=$page" "$OUT/api/comments-$page.json"
+  pages+=("$OUT/api/comments-$page.json")
+  [ "$((page * 100))" -lt "$total" ] || break
 done
-jq -s add "${pages[@]}" > "$OUT/api/open.json"
-if [ "$(jq length "$OUT/api/open.json")" -ge 500 ]; then
-  write REJECTED "too many pull requests are open to count yours: try again later" "$meta"
-  exit 0
-fi
-if [ "$(jq -r '.comments // 0 | if type == "number" then . else 101 end' "$OUT/api/pr.json")" -gt 100 ]; then
-  write REJECTED "this pull request has more than 100 comments: open a new one" "$meta"
-  exit 0
-fi
-get "issues/$PR/comments?per_page=100" "$OUT/api/comments.json"
-if ! limits=$(node .github/scripts/pr-guard.mjs limits "$OUT/api/open.json" "$OUT/api/comments.json" "$author"); then
+jq -s add "${pages[@]}" > "$OUT/api/comments.json"
+if ! limits=$(node .github/scripts/pr-guard.mjs limits "$OUT/api/mine.json" "$OUT/api/comments.json"); then
   write REJECTED "$(jq -r '.refused // "the pull request was refused"' <<<"$limits")" "$meta"
   exit 0
 fi

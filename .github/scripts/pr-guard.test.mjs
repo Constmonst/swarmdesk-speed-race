@@ -67,27 +67,27 @@ test('the step must be open and belong to the target', () => {
   assert.throws(() => checkStep({}, 12, 'crc32'), /no step list/);
 });
 
-const pulls = (n, login = 'ada') => Array.from({ length: n }, () => ({ user: { login } }));
+const mine = (n) => ({ total_count: n });
+const others = (n) => Array.from({ length: n }, () => ({ user: { login: 'grace' } }));
 const verdicts = (n) => Array.from({ length: n }, () => ({ user: { login: 'github-actions[bot]' } }));
 
 test('an author within the limits is judged', () => {
-  const others = pulls(10, 'grace');
-  assert.deepEqual(checkLimits([...pulls(MAX_OPEN), ...others], verdicts(2), 'ada'), {
-    open: MAX_OPEN,
-    verdicts: 2,
-  });
+  assert.deepEqual(checkLimits(mine(MAX_OPEN), verdicts(2)), { open: MAX_OPEN, verdicts: 2 });
 });
 
 test('too many open pull requests by one author are refused', () => {
-  assert.throws(() => checkLimits(pulls(MAX_OPEN + 1), [], 'ada'), /open pull requests/);
+  assert.throws(() => checkLimits(mine(MAX_OPEN + 1), []), /open pull requests/);
 });
 
 test('a pull request that was judged too often is refused', () => {
-  const talk = [...verdicts(MAX_VERDICTS), { user: { login: 'ada' } }];
-  assert.throws(() => checkLimits(pulls(1), talk, 'ada'), /has been judged/);
-  assert.ok(checkLimits(pulls(1), [...verdicts(MAX_VERDICTS - 1), ...pulls(50)], 'ada'));
+  assert.throws(() => checkLimits(mine(1), verdicts(MAX_VERDICTS)), /has been judged/);
+});
+
+test("other people's comments never block a pull request", () => {
+  assert.ok(checkLimits(mine(1), [...verdicts(MAX_VERDICTS - 1), ...others(900)]));
 });
 
 test('limits that cannot be read are refused', () => {
-  assert.throws(() => checkLimits({}, [], 'ada'), /could not be read/);
+  assert.throws(() => checkLimits({}, []), /could not be read/);
+  assert.throws(() => checkLimits(mine(1), {}), /could not be read/);
 });

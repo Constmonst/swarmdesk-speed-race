@@ -5,7 +5,7 @@
 //
 //   node pr-guard.mjs pr <pr.json> <files.json> <tree.json> <commits.json> <repo> <default branch>
 //   node pr-guard.mjs step <steps.json> <step id> <target>
-//   node pr-guard.mjs limits <open pulls.json> <comments.json> <author>
+//   node pr-guard.mjs limits <search result.json> <comments.json>
 //
 // Exit 0: prints one JSON object. Exit 1: prints {"refused": "<reason>"}. Exit 3: bad usage.
 import { readFileSync } from 'node:fs';
@@ -77,9 +77,13 @@ export function checkStep(list, step, target) {
 }
 
 // Keeps one author from filling the queue, and one pull request from being judged for ever.
-export function checkLimits(open, comments, author) {
-  if (!Array.isArray(open) || !Array.isArray(comments)) refuse('the limits could not be read');
-  const mine = open.filter((pr) => pr?.user?.login === author).length;
+// `search` is GitHub's answer to "open pull requests by this author": its total is the count.
+// Only verdicts this workflow posted are counted, so other people's comments change nothing.
+export function checkLimits(search, comments) {
+  const mine = search?.total_count;
+  if (!Number.isInteger(mine) || mine < 0 || !Array.isArray(comments)) {
+    refuse('the limits could not be read');
+  }
   if (mine > MAX_OPEN) {
     refuse(`you have ${mine} open pull requests: at most ${MAX_OPEN} are judged at a time`);
   }
@@ -100,11 +104,11 @@ function main(argv) {
   if (mode === 'step' && rest.length === 3) {
     return checkStep(json(rest[0]), Number(rest[1]), rest[2]);
   }
-  if (mode === 'limits' && rest.length === 3) {
-    return checkLimits(json(rest[0]), json(rest[1]), rest[2]);
+  if (mode === 'limits' && rest.length === 2) {
+    return checkLimits(json(rest[0]), json(rest[1]));
   }
   console.error(
-    'usage: pr-guard.mjs pr <pr> <files> <tree> <commits> <repo> <branch> | step <steps> <id> <target> | limits <open> <comments> <author>',
+    'usage: pr-guard.mjs pr <pr> <files> <tree> <commits> <repo> <branch> | step <steps> <id> <target> | limits <search> <comments>',
   );
   process.exit(3);
 }
