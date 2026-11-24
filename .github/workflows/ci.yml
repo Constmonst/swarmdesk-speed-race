@@ -31,13 +31,16 @@ jobs:
           git fetch -q --depth 1 "https://github.com/${GITHUB_REPOSITORY}.git" "$GITHUB_SHA"
           git checkout -q --detach FETCH_HEAD
 
+      # The deciding workflow and the self-test read this cache and never write it, so the key
+      # must stay the same in all three. A run for a pull request saves into that pull
+      # request's own scope, which runs on main cannot read.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ci-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          key: sdcheck-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'harness/**') }}
 
       - name: Format and lint
         run: |

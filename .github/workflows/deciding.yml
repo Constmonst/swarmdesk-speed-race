@@ -23,14 +23,15 @@ on:
 # This trigger would hand out a write token by default. Start from nothing.
 permissions: {}
 
-concurrency:
-  group: deciding-${{ github.event.pull_request.number || inputs.pr }}
-  cancel-in-progress: true
-
 jobs:
+  # A newer push to the same pull request ends a judge run that is still going: its verdict
+  # would be about a file the pull request no longer holds.
   judge:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    concurrency:
+      group: deciding-judge-${{ github.event.pull_request.number || inputs.pr }}
+      cancel-in-progress: true
     permissions:
       contents: read
       pull-requests: read
@@ -58,8 +59,10 @@ jobs:
           [ "$(git rev-parse HEAD)" = "$GITHUB_SHA" ]
           echo "base commit: $GITHUB_SHA"
 
+      # Read only: this job compiles a file from outside, so it must not be able to leave a
+      # built checker behind for later runs. The cache is filled by ci.yml on main alone.
       - name: Reuse the built checker
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -85,11 +88,17 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+  # Never ended half way: once it has written a record it must also close the pull request,
+  # comment, tell the site and start the self-test. A newer push therefore waits for it. It
+  # does not run for a judge run that a newer push ended, which has nothing to report.
   report:
     needs: judge
-    if: always()
+    if: ${{ always() && needs.judge.result != 'cancelled' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    concurrency:
+      group: deciding-report-${{ github.event.pull_request.number || inputs.pr }}
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
