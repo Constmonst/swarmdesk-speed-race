@@ -55,10 +55,15 @@ fn guard_file(args: &[String]) -> Result<ExitCode, String> {
     let path = args.get(1).ok_or_else(usage)?;
     let source = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
     match guard::check(&source) {
-        Ok(()) => println!("guard: pass"),
-        Err(reason) => println!("{reason}"),
+        Ok(()) => {
+            println!("guard: pass");
+            Ok(ExitCode::SUCCESS)
+        }
+        Err(reason) => {
+            println!("{reason}");
+            Ok(ExitCode::from(1))
+        }
     }
-    Ok(ExitCode::SUCCESS)
 }
 
 fn judge_command(args: &[String]) -> Result<ExitCode, String> {
@@ -72,11 +77,7 @@ fn judge_command(args: &[String]) -> Result<ExitCode, String> {
             .map_err(|_| "--seed must be a number".to_string())?,
         None => sdcheck::fresh_seed(),
     };
-    let seeds = seeds_for(
-        seed,
-        flag(args, "--seed").is_some(),
-        flag(args, "--confirm"),
-    )?;
+    let seeds = seeds_for(seed, flag(args, "--confirm"))?;
     let work = sdcheck::work_dir();
     let report = judge_runs(target, &candidate, &holder, &seeds, &work);
     if std::env::var("SD_KEEP").is_err() {
@@ -93,24 +94,17 @@ fn judge_command(args: &[String]) -> Result<ExitCode, String> {
     })
 }
 
-/// The seed of the first run, then one more per confirmation run. With `--seed` the later
-/// ones follow from it, so a run can be repeated; without it each is fresh from the system.
-fn seeds_for(first: u64, fixed: bool, confirm: Option<&str>) -> Result<Vec<u64>, String> {
+/// The seed of the first run, then one more per confirmation run. The later ones follow
+/// from the first, so the one seed a verdict reports is enough to repeat every run of it.
+/// Nobody can know the first seed before the file is judged, and each seed is mixed before
+/// use, so the runs' inputs have nothing in common.
+fn seeds_for(first: u64, confirm: Option<&str>) -> Result<Vec<u64>, String> {
     let extra = match confirm {
         Some(text) => text.parse::<u64>().ok().filter(|n| *n <= 20),
         None => Some(0),
     };
     let extra = extra.ok_or("--confirm must be a number from 0 to 20")?;
-    let next = |i: u64| {
-        if fixed {
-            first.wrapping_add(i)
-        } else {
-            sdcheck::fresh_seed()
-        }
-    };
-    Ok(std::iter::once(first)
-        .chain((1..=extra).map(next))
-        .collect())
+    Ok((0..=extra).map(|i| first.wrapping_add(i)).collect())
 }
 
 fn print_report(report: &Report) {
@@ -182,4 +176,22 @@ fn selftest_target(target: &Target, engine: &wasmtime::Engine, work: &Path) -> R
         }
     }
     Ok(fuel)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::seeds_for;
+
+    #[test]
+    fn every_run_follows_from_the_reported_seed() {
+        assert_eq!(seeds_for(7, None), Ok(vec![7]));
+        assert_eq!(seeds_for(7, Some("5")), Ok(vec![7, 8, 9, 10, 11, 12]));
+        assert_eq!(seeds_for(u64::MAX, Some("1")), Ok(vec![u64::MAX, 0]));
+    }
+
+    #[test]
+    fn refuses_a_bad_number_of_runs() {
+        assert!(seeds_for(7, Some("21")).is_err());
+        assert!(seeds_for(7, Some("many")).is_err());
+    }
 }

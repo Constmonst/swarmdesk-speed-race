@@ -63,7 +63,7 @@ impl Report {
     }
 
     pub fn to_json(&self) -> String {
-        let reason = self.reason.replace('\\', "\\\\").replace('"', "\\\"");
+        let reason = json_text(&self.reason);
         format!(
             concat!(
                 "{{\"verdict\":\"{}\",\"reason\":\"{}\",\"target\":\"{}\",\"seed\":\"{}\",",
@@ -82,6 +82,20 @@ impl Report {
             MARGIN_PERCENT
         )
     }
+}
+
+/// `text` as the inside of a JSON string.
+fn json_text(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// Judges `candidate` against `holder` for `target` with inputs from `seed`.
@@ -240,6 +254,16 @@ mod tests {
             "expected 4 bytes, got 4; first difference at byte 2: expected 0x03, got 0x09"
         );
         assert_eq!(mismatch(&[1, 2, 3], &[1, 2]), "expected 3 bytes, got 2");
+    }
+
+    #[test]
+    fn a_reason_with_any_character_is_still_json() {
+        assert_eq!(super::json_text("plain"), "plain");
+        assert_eq!(super::json_text("a \"b\" \\ c"), "a \\\"b\\\" \\\\ c");
+        assert_eq!(
+            super::json_text("line\nnext\ttab"),
+            "line\\u000anext\\u0009tab"
+        );
     }
 
     #[test]

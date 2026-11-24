@@ -35,7 +35,7 @@ pub fn compile(source: &Path, work: &Path, label: &str) -> Result<Vec<u8>, Strin
     std::fs::copy(source, dir.join("submission.rs")).map_err(|e| e.to_string())?;
     std::fs::write(dir.join("root.rs"), ROOT).map_err(|e| e.to_string())?;
     let log = std::fs::File::create(dir.join("rustc.log")).map_err(|e| e.to_string())?;
-    let mut child = Command::new(rustc_path())
+    let mut child = Command::new(rustc_path()?)
         .current_dir(&dir)
         .env_clear()
         .envs(passed_env())
@@ -71,6 +71,7 @@ pub fn compile(source: &Path, work: &Path, label: &str) -> Result<Vec<u8>, Strin
             Some(_) => return Err("does not compile".into()),
             None if started.elapsed() > TIMEOUT => {
                 let _ = child.kill();
+                let _ = child.wait();
                 return Err("the compiler ran out of time".into());
             }
             None => std::thread::sleep(Duration::from_millis(40)),
@@ -96,20 +97,34 @@ pub fn log_path(work: &Path, label: &str) -> PathBuf {
     work.join(label).join("rustc.log")
 }
 
-/// `SD_RUSTC` wins; otherwise ask rustup for the pinned compiler; otherwise `rustc`.
-fn rustc_path() -> PathBuf {
+/// `SD_RUSTC` wins; otherwise ask rustup for the pinned compiler; otherwise the `rustc` on
+/// the path, but only when it is the pinned version: another version counts other fuel.
+fn rustc_path() -> Result<PathBuf, String> {
     if let Ok(path) = std::env::var("SD_RUSTC") {
-        return PathBuf::from(path);
+        return Ok(PathBuf::from(path));
     }
     let asked = Command::new("rustup")
         .args(["which", "rustc", "--toolchain", TOOLCHAIN])
         .output();
-    match asked {
-        Ok(out) if out.status.success() => {
-            PathBuf::from(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    if let Ok(out) = asked {
+        if out.status.success() {
+            let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            return Ok(PathBuf::from(path));
         }
-        _ => PathBuf::from("rustc"),
     }
+    let version = Command::new("rustc")
+        .env("RUSTUP_TOOLCHAIN", TOOLCHAIN)
+        .arg("--version")
+        .output();
+    match version {
+        Ok(out) if is_pinned(&String::from_utf8_lossy(&out.stdout)) => Ok(PathBuf::from("rustc")),
+        _ => Err(format!("the compiler rustc {TOOLCHAIN} was not found")),
+    }
+}
+
+/// True for the first line `rustc --version` prints for the pinned compiler.
+fn is_pinned(version: &str) -> bool {
+    version.starts_with(&format!("rustc {TOOLCHAIN} "))
 }
 
 #[cfg(test)]
@@ -118,5 +133,16 @@ mod tests {
     fn toolchain_file_names_the_same_version() {
         let file = include_str!("../../rust-toolchain.toml");
         assert!(file.contains(&format!("channel = \"{}\"", super::TOOLCHAIN)));
+    }
+
+    #[test]
+    fn only_the_pinned_version_is_taken_from_the_path() {
+        let pinned = format!("rustc {} (abc 2026-01-01)\n", super::TOOLCHAIN);
+        assert!(super::is_pinned(&pinned));
+        assert!(!super::is_pinned("rustc 1.99.0 (abc 2026-01-01)\n"));
+        assert!(!super::is_pinned(&format!(
+            "rustc {}1 (abc)\n",
+            super::TOOLCHAIN
+        )));
     }
 }

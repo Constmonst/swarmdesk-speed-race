@@ -32,6 +32,17 @@ repeated:
 
     cargo run --release -- judge --target crc32 --candidate my.rs --holder holder.rs --seed 123
 
+The check that counts runs six sets of inputs. Their seeds follow from the one the verdict
+reports, so adding `--confirm 5` to the line above repeats all six.
+
+For the two functions whose answer is a yes, a no or a place (`utf8_valid` and
+`find_substring`) a file could otherwise save fuel by not reading all of its input. Their
+inputs are therefore made so that only reading everything gives the answer: inputs with
+either answer have the same lengths and are made of the same bytes, and the one fault, or the
+one place where the needle starts, is drawn evenly over the whole input. Each set holds some
+four hundred inputs, so a file that leaves even a small part unread meets an input that
+shows it.
+
 ## What fuel is
 
 Wasmtime 51 charges one unit for most instructions, none for a few such as `nop` and `block`,

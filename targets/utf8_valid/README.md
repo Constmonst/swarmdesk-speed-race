@@ -11,9 +11,9 @@ Decide whether the input is valid UTF-8.
 
 ## Inputs
 
-About half of the inputs are valid.
-- Valid: empty, ASCII, and text mixing 1-, 2-, 3- and 4-byte sequences, up to 12000 characters.
-- Invalid: random bytes, valid text with one corrupted byte, overlong encodings (such as C0 80), surrogates (ED A0 80 and up), values above U+10FFFF (F4 90 80 80 and up), and text whose final sequence is cut short.
+About 400 inputs in each run, about half of them valid. Three in four are up to 8192 bytes long, one in four up to 64 bytes. Valid and invalid inputs have the same lengths and are the same kinds of text, so only reading every byte gives the answer.
+- Text: ASCII (all of 00 to 7F), ASCII with a few longer characters, 2-, 3- or 4-byte characters only, or a mix of all four. The characters at the edges of the encoding occur (U+007F, U+0080, U+07FF, U+0800, U+D7FF, U+E000, U+FFFF, U+10000, U+10FFFF).
+- An invalid input is such text with one fault at a place drawn evenly over its whole length, the end included: a stray continuation byte, a byte that starts nothing (F8 to FF), an overlong encoding (such as C0 80 or E0 9F BF), a surrogate (ED A0 80 and up), a value above U+10FFFF (F4 90 80 80 and up), a sequence that lost its last bytes, or one corrupted byte.
 
 ## Rules
 

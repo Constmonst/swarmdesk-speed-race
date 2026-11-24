@@ -12,7 +12,7 @@ Compute the CRC-32 checksum (IEEE 802.3) of the input bytes.
 ## Inputs
 
 - Empty input.
-- Tiny (1 to 16 bytes), medium (17 to 1024 bytes) and large (4096 to 65536 bytes) random bytes.
+- Tiny (1 to 16 bytes), medium (17 to 1024 bytes), in between (1025 to 4095 bytes) and large (4096 to 65536 bytes) random bytes.
 - All zero bytes and all 0xFF bytes, 2048 to 8192 long.
 
 ## Rules

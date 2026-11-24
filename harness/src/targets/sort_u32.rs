@@ -79,6 +79,7 @@ fn generate(rng: &mut Rng) -> Vec<Case> {
     cases.push(case("single", &random_values(rng, 1)));
     cases.extend(sized_cases(rng, "tiny", 6, 2, 16));
     cases.extend(sized_cases(rng, "medium", 5, 17, 1024));
+    cases.extend(sized_cases(rng, "between", 3, 1025, 4095));
     cases.extend(sized_cases(rng, "large", 3, 4096, 32_768));
     cases.extend(structured_cases(rng));
     cases

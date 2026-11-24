@@ -14,7 +14,7 @@ Decode base64 text back into bytes.
 Every input is made by encoding random bytes.
 - Empty input.
 - Decoded lengths of 1, 2 and 3 bytes, and longer inputs whose decoded length is 1 or 2 modulo 3 (padding with `==` and `=`).
-- Tiny, medium and large inputs (up to 65536 decoded bytes).
+- Tiny, medium, in-between (1025 to 4095 decoded bytes) and large inputs (up to 65536 decoded bytes).
 
 ## Rules
 

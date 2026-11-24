@@ -47,7 +47,8 @@ repository runs it and finds that it gives the right answers and beats the recor
 
 The score is the fuel that [wasmtime](https://wasmtime.dev) counts: roughly one unit per
 WebAssembly instruction executed. It is the same on every machine, so anyone can repeat a
-verdict with the seed it reports. It counts instructions, not seconds.
+verdict with the seed it reports (add `--confirm 5` for all six runs of the deciding check).
+It counts instructions, not seconds.
 
 ## Take part
 

@@ -11,7 +11,7 @@ Sort a list of unsigned 32-bit integers in ascending order.
 ## Inputs
 
 - Empty input and a single value.
-- Tiny (2 to 16 values), medium (17 to 1024 values) and large (4096 to 32768 values) random values.
+- Tiny (2 to 16 values), medium (17 to 1024 values), in between (1025 to 4095 values) and large (4096 to 32768 values) random values.
 - Already sorted, reverse sorted, all equal, and a few distinct values repeated.
 
 ## Rules
