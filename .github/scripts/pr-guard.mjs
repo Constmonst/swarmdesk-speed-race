@@ -38,8 +38,9 @@ export function checkPr(pr, files, tree, commits, repo, defaultBranch) {
   if (!LOGIN_RE.test(author ?? '')) refuse('the author is not a plain account name');
   const branch = BRANCH_RE.exec(pr.head?.ref ?? '');
   if (!branch) refuse('the branch must be named step-<number>, as the desk gave it');
-  // One commit, named after the branch. The merge keeps that commit in history, so it must
-  // hold the one change and nothing to read: no earlier commits, no message of its own.
+  // One commit, named after the branch, with the one change and nothing to read: no earlier
+  // commits, no message of its own. The record is written as a new commit from the judged
+  // file, so this commit never reaches main, but it is what people see on the pull request.
   if (pr.commits !== 1 || !Array.isArray(commits) || commits.length !== 1) {
     refuse('the pull request must have exactly one commit');
   }
