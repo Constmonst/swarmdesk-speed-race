@@ -258,7 +258,10 @@ mod tests {
 
         let f = std::fs::File::create(&big).unwrap();
         f.set_len((super::MAX_WASM_BYTES as u64) + 1).unwrap();
-        assert_eq!(super::read_wasm(&big), Err(super::CompileError::WasmTooLarge));
+        assert_eq!(
+            super::read_wasm(&big),
+            Err(super::CompileError::WasmTooLarge)
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

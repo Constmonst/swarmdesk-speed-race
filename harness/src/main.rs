@@ -86,7 +86,8 @@ fn judge_command(args: &[String]) -> Result<ExitCode, String> {
         None => None,
     };
     let work = sdcheck::work_dir();
-    let report = judge_runs_with_baseline(target, &candidate, &holder, &seeds, &work, baseline_fuel);
+    let report =
+        judge_runs_with_baseline(target, &candidate, &holder, &seeds, &work, baseline_fuel);
     if std::env::var("SD_KEEP").is_err() {
         let _ = std::fs::remove_dir_all(&work);
     }

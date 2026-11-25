@@ -36,7 +36,11 @@ fn a_file_does_not_beat_itself() {
     assert_eq!(report.verdict, "REJECTED");
     assert_eq!(report.reason_code, "margin_too_small");
     assert_eq!(report.required_margin_bps, 300);
-    assert!(report.reason.contains("percent less fuel"), "{}", report.reason);
+    assert!(
+        report.reason.contains("percent less fuel"),
+        "{}",
+        report.reason
+    );
 }
 
 #[test]
@@ -52,7 +56,11 @@ fn an_endless_loop_runs_out_of_fuel() {
     let report = judge_crc32("tests/fixtures/endless.rs");
     assert_eq!(report.verdict, "REJECTED");
     assert_eq!(report.reason_code, "out_of_fuel");
-    assert!(report.reason.contains("ran out of fuel"), "{}", report.reason);
+    assert!(
+        report.reason.contains("ran out of fuel"),
+        "{}",
+        report.reason
+    );
 }
 
 #[test]
@@ -81,7 +89,11 @@ fn a_file_with_a_comment_never_reaches_the_compiler() {
     let report = judge_crc32("tests/fixtures/comment.rs");
     assert_eq!(report.verdict, "REJECTED");
     assert_eq!(report.reason_code, "guard_rejected");
-    assert!(report.reason.starts_with("guard: comments"), "{}", report.reason);
+    assert!(
+        report.reason.starts_with("guard: comments"),
+        "{}",
+        report.reason
+    );
 }
 
 #[test]
@@ -217,7 +229,11 @@ fn judge_runs_with_baseline_tapers_required_margin() {
     assert_eq!(mid_base.verdict, "REJECTED");
     assert_eq!(mid_base.reason_code, "margin_too_small");
     assert_eq!(mid_base.required_margin_bps, 150);
-    assert!(mid_base.reason.contains("1.5 percent less fuel"), "{}", mid_base.reason);
+    assert!(
+        mid_base.reason.contains("1.5 percent less fuel"),
+        "{}",
+        mid_base.reason
+    );
 
     let low_base = judge_runs_with_baseline(
         target,
@@ -231,8 +247,15 @@ fn judge_runs_with_baseline_tapers_required_margin() {
     assert_eq!(low_base.verdict, "REJECTED");
     assert_eq!(low_base.reason_code, "margin_too_small");
     assert_eq!(low_base.required_margin_bps, 50);
-    assert!(low_base.reason.contains("0.5 percent less fuel"), "{}", low_base.reason);
+    assert!(
+        low_base.reason.contains("0.5 percent less fuel"),
+        "{}",
+        low_base.reason
+    );
     let json = low_base.to_json();
     assert!(json.contains("\"required_margin_bps\":50"), "{json}");
-    assert!(json.contains("\"reason_code\":\"margin_too_small\""), "{json}");
+    assert!(
+        json.contains("\"reason_code\":\"margin_too_small\""),
+        "{json}"
+    );
 }

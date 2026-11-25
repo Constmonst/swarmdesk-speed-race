@@ -9,7 +9,9 @@
 pub mod build;
 pub mod guard;
 pub mod judge;
+pub mod margin;
 pub mod module;
+pub mod report;
 pub mod rng;
 pub mod run;
 pub mod targets;
