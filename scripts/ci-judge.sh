@@ -99,11 +99,12 @@ if [ "$(git hash-object "$OUT/candidate.rs")" != "$blob" ]; then
   exit 0
 fi
 
-baseline_args=()
+# The site sends the record holder's share of the reference's fuel; it tapers the margin.
+share_args=()
 if [ -s "$OUT/api/steps.json" ]; then
-  baseline=$(jq -r --arg t "$target" '(.steps // [] | map(select(.target == $t)) | .[0].baseline_fuel // "") | tostring' "$OUT/api/steps.json" 2>/dev/null || true)
-  if printf '%s' "$baseline" | grep -Eqx '[0-9]{1,18}'; then
-    baseline_args=(--baseline-fuel "$baseline")
+  share=$(jq -r --arg t "$target" '(.steps // [] | map(select(.target == $t)) | .[0].holder_share_bps // "") | tostring' "$OUT/api/steps.json" 2>/dev/null || true)
+  if printf '%s' "$share" | grep -Eqx '[0-9]{1,5}' && [ "$share" -le 10000 ]; then
+    share_args=(--holder-share-bps "$share")
   fi
 fi
 
@@ -113,7 +114,7 @@ set +e
 # them correctly, and the margin is taken over all six together.
 env -u GH_TOKEN ./target/release/sdcheck judge --target "$target" --confirm 5 \
   --candidate "$OUT/candidate.rs" --holder "targets/$target/holder.rs" \
-  "${baseline_args[@]}" --json "$OUT/verdict.json"
+  "${share_args[@]}" --json "$OUT/verdict.json"
 set -e
 if [ ! -s "$OUT/verdict.json" ]; then
   write FAULT "the checker produced no verdict" "$meta"

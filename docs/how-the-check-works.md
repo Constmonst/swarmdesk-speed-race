@@ -55,11 +55,13 @@ the race rewards wide instructions more than real hardware does.
 
 ## Margin, telemetry and compiler limits
 
-- **Tapered win margins.** By default (or when no `--baseline-fuel` is given, or the record
-  holder still burns at least 60% of the baseline fuel), a submission must burn at least 3.0%
-  (`300` bps) less fuel than the record holder. Once the record holder drops below 60% of the
-  baseline fuel, the required margin tapers to 1.5% (`150` bps), and below 35% of the baseline
-  fuel it tapers to 0.5% (`50` bps), keeping late-stage improvements reachable.
+- **Tapered win margins.** By default (or when no `--holder-share-bps` is given, or the record
+  holder still burns at least 60% of the reference's fuel), a submission must burn at least
+  3.0% (`300` bps) less fuel than the record holder. Below 60% the required margin tapers to
+  1.5% (`150` bps), and below 35% to 0.5% (`50` bps), keeping late-stage improvements
+  reachable. The share comes from the site's `steps.json` (`holder_share_bps`): the product of
+  every record's own fuel ratio, each measured on one set of inputs. Raw fuel totals are not
+  used, because they move by tens of percent with the random inputs of a run.
 - **Per-class fuel.** For every input class where both candidate and record holder answer
   correctly, `sdcheck judge` accumulates `(candidate, holder)` fuel totals in `class_fuel`.
   These totals are printed on the command line and forwarded as a sanitized numeric JSON map to

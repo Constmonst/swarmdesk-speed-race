@@ -3,12 +3,12 @@
 //!   sdcheck targets
 //!   sdcheck guard <file>
 //!   sdcheck judge --target <name> --candidate <file> --holder <file> [--seed <n>]
-//!                 [--confirm <n>] [--baseline-fuel <n>] [--json <file>]
+//!                 [--confirm <n>] [--holder-share-bps <n>] [--json <file>]
 //!   sdcheck selftest
 //!
 //! Exit codes: 0 a verdict was reached (read it), 1 FAULT, 2 bad usage.
 
-use sdcheck::judge::{judge_runs_with_baseline, Report};
+use sdcheck::judge::{judge_runs_with_share, Report};
 use sdcheck::rng::Rng;
 use sdcheck::targets::{self, Target};
 use sdcheck::{build, guard, run};
@@ -35,7 +35,7 @@ fn main() -> ExitCode {
 
 fn usage() -> String {
     "usage: sdcheck targets | guard <file> | judge --target <name> --candidate <file> \
-     --holder <file> [--seed <n>] [--confirm <n>] [--baseline-fuel <n>] [--json <file>] | selftest"
+     --holder <file> [--seed <n>] [--confirm <n>] [--holder-share-bps <n>] [--json <file>] | selftest"
         .to_string()
 }
 
@@ -78,16 +78,18 @@ fn judge_command(args: &[String]) -> Result<ExitCode, String> {
         None => sdcheck::fresh_seed(),
     };
     let seeds = seeds_for(seed, flag(args, "--confirm"))?;
-    let baseline_fuel = match flag(args, "--baseline-fuel") {
+    let holder_share_bps = match flag(args, "--holder-share-bps") {
         Some(text) => Some(
             text.parse::<u64>()
-                .map_err(|_| "--baseline-fuel must be a number".to_string())?,
+                .ok()
+                .filter(|&bps| bps <= 10_000)
+                .ok_or("--holder-share-bps must be a number from 0 to 10000")?,
         ),
         None => None,
     };
     let work = sdcheck::work_dir();
     let report =
-        judge_runs_with_baseline(target, &candidate, &holder, &seeds, &work, baseline_fuel);
+        judge_runs_with_share(target, &candidate, &holder, &seeds, &work, holder_share_bps);
     if std::env::var("SD_KEEP").is_err() {
         let _ = std::fs::remove_dir_all(&work);
     }

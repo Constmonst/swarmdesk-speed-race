@@ -1,6 +1,6 @@
 //! End-to-end verdicts: each test builds real WebAssembly and runs it.
 
-use sdcheck::judge::{judge, judge_runs_with_baseline, Report};
+use sdcheck::judge::{judge, judge_runs_with_share, Report};
 use sdcheck::targets;
 use std::path::Path;
 
@@ -209,23 +209,16 @@ fn a_trapping_submission_reports_trapped_reason_code() {
 }
 
 #[test]
-fn judge_runs_with_baseline_tapers_required_margin() {
+fn judge_runs_with_share_tapers_required_margin() {
     let target = targets::find("crc32").unwrap();
     let work = sdcheck::work_dir();
     let baseline = Path::new("tests/fixtures/crc32_baseline.rs");
-    let no_base = judge_runs_with_baseline(target, baseline, baseline, &[11], &work, None);
+    let no_base = judge_runs_with_share(target, baseline, baseline, &[11], &work, None);
     assert_eq!(no_base.verdict, "REJECTED");
     assert_eq!(no_base.reason_code, "margin_too_small");
     assert_eq!(no_base.required_margin_bps, 300);
 
-    let mid_base = judge_runs_with_baseline(
-        target,
-        baseline,
-        baseline,
-        &[11],
-        &work,
-        Some(no_base.holder_fuel * 2),
-    );
+    let mid_base = judge_runs_with_share(target, baseline, baseline, &[11], &work, Some(5_000));
     assert_eq!(mid_base.verdict, "REJECTED");
     assert_eq!(mid_base.reason_code, "margin_too_small");
     assert_eq!(mid_base.required_margin_bps, 150);
@@ -235,14 +228,7 @@ fn judge_runs_with_baseline_tapers_required_margin() {
         mid_base.reason
     );
 
-    let low_base = judge_runs_with_baseline(
-        target,
-        baseline,
-        baseline,
-        &[11],
-        &work,
-        Some(no_base.holder_fuel * 4),
-    );
+    let low_base = judge_runs_with_share(target, baseline, baseline, &[11], &work, Some(2_500));
     let _ = std::fs::remove_dir_all(&work);
     assert_eq!(low_base.verdict, "REJECTED");
     assert_eq!(low_base.reason_code, "margin_too_small");

@@ -37,18 +37,18 @@ pub fn judge_runs(
     seeds: &[u64],
     work: &Path,
 ) -> Report {
-    judge_runs_with_baseline(target, candidate, holder, seeds, work, None)
+    judge_runs_with_share(target, candidate, holder, seeds, work, None)
 }
 
-/// Judges on one set of inputs per seed, tapering the required win margin when `baseline_fuel`
-/// shows the record holder has already been pushed far below the original baseline.
-pub fn judge_runs_with_baseline(
+/// Judges on one set of inputs per seed, tapering the required win margin when
+/// `holder_share_bps` shows the record holder has already been pushed far below the reference.
+pub fn judge_runs_with_share(
     target: &'static Target,
     candidate: &Path,
     holder: &Path,
     seeds: &[u64],
     work: &Path,
-    baseline_fuel: Option<u64>,
+    holder_share_bps: Option<u64>,
 ) -> Report {
     let mut report = Report::new(target.name, seeds.first().copied().unwrap_or(0));
     let source = match std::fs::read(candidate) {
@@ -94,12 +94,12 @@ pub fn judge_runs_with_baseline(
         }
         report.runs += 1;
     }
-    decide(report, baseline_fuel)
+    decide(report, holder_share_bps)
 }
 
 /// The verdict for a candidate that answered every input correctly.
-fn decide(mut report: Report, baseline_fuel: Option<u64>) -> Report {
-    let margin_bps = required_margin_bps(report.holder_fuel, baseline_fuel);
+fn decide(mut report: Report, holder_share_bps: Option<u64>) -> Report {
+    let margin_bps = required_margin_bps(holder_share_bps);
     report.required_margin_bps = margin_bps;
     // A record holder that answers wrongly is no record. A correct file replaces it whatever
     // its fuel, so that a faulty record holder can never block its function.
@@ -246,7 +246,7 @@ mod tests {
         report.holder_wasm_bytes = 768;
         report.class_fuel.insert("empty", (10, 20));
         report.class_fuel.insert("random", (9_840, 9_980));
-        let report = super::decide(report, Some(20_000));
+        let report = super::decide(report, Some(5_000));
         let json = report.to_json();
         assert!(json.contains("\"verdict\":\"ACCEPTED\""), "{json}");
         assert!(json.contains("\"reason_code\":\"\""), "{json}");

@@ -1,23 +1,19 @@
 //! How much less fuel a candidate must burn than the record holder to take its place.
 
-/// A submission must burn at least this much less fuel than the record holder when no baseline
-/// taper applies.
+/// A submission must burn at least this much less fuel than the record holder when no taper
+/// applies.
 pub const MARGIN_PERCENT: u64 = 3;
 
-/// Required win margin in basis points (`100` bps = 1%). Tapers as `holder_fuel` drops
-/// significantly below `baseline_fuel`, keeping late-stage optimizations reachable.
-pub fn required_margin_bps(holder_fuel: u64, baseline_fuel: Option<u64>) -> u64 {
-    let Some(base) = baseline_fuel.filter(|&b| b > 0) else {
-        return MARGIN_PERCENT * 100;
-    };
-    let holder = u128::from(holder_fuel) * 100;
-    let base = u128::from(base);
-    if holder >= base * 60 {
-        300
-    } else if holder >= base * 35 {
-        150
-    } else {
-        50
+/// Required win margin in basis points (`100` bps = 1%), from the record holder's share of the
+/// original reference's fuel in basis points (`10_000` = no record yet). The share is the
+/// product of each record's own ratio, each measured on one set of inputs, so it does not move
+/// with the random inputs of this run the way raw fuel totals do. Below 60% the margin tapers
+/// to 1.5%, below 35% to 0.5%, keeping late-stage optimizations reachable.
+pub fn required_margin_bps(holder_share_bps: Option<u64>) -> u64 {
+    match holder_share_bps {
+        Some(share) if share < 3_500 => 50,
+        Some(share) if share < 6_000 => 150,
+        _ => MARGIN_PERCENT * 100,
     }
 }
 
@@ -56,13 +52,13 @@ mod tests {
 
     #[test]
     fn tapered_margin_tiers() {
-        assert_eq!(required_margin_bps(500, None), 300);
-        assert_eq!(required_margin_bps(500, Some(0)), 300);
-        assert_eq!(required_margin_bps(600, Some(1_000)), 300);
-        assert_eq!(required_margin_bps(599, Some(1_000)), 150);
-        assert_eq!(required_margin_bps(350, Some(1_000)), 150);
-        assert_eq!(required_margin_bps(349, Some(1_000)), 50);
-        assert_eq!(required_margin_bps(0, Some(1_000)), 50);
+        assert_eq!(required_margin_bps(None), 300);
+        assert_eq!(required_margin_bps(Some(10_000)), 300);
+        assert_eq!(required_margin_bps(Some(6_000)), 300);
+        assert_eq!(required_margin_bps(Some(5_999)), 150);
+        assert_eq!(required_margin_bps(Some(3_500)), 150);
+        assert_eq!(required_margin_bps(Some(3_499)), 50);
+        assert_eq!(required_margin_bps(Some(0)), 50);
     }
 
     #[test]
