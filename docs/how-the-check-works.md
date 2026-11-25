@@ -53,6 +53,28 @@ a new version may count differently. `harness/tests/fuel.rs` fails if these pric
 Fuel counts instructions, not seconds. A SIMD instruction costs one unit like any other, so
 the race rewards wide instructions more than real hardware does.
 
+## Margin, telemetry and compiler limits
+
+- **Tapered win margins.** By default (or when no `--baseline-fuel` is given, or the record
+  holder still burns at least 60% of the baseline fuel), a submission must burn at least 3.0%
+  (`300` bps) less fuel than the record holder. Once the record holder drops below 60% of the
+  baseline fuel, the required margin tapers to 1.5% (`150` bps), and below 35% of the baseline
+  fuel it tapers to 0.5% (`50` bps), keeping late-stage improvements reachable.
+- **Per-class fuel.** For every input class where both candidate and record holder answer
+  correctly, `sdcheck judge` accumulates `(candidate, holder)` fuel totals in `class_fuel`.
+  These totals are printed on the command line and forwarded as a sanitized numeric JSON map to
+  the site.
+- **`.wasm` byte size.** The checker records `candidate_wasm_bytes` and `holder_wasm_bytes` for
+  compiled modules and sends `wasm_bytes` with the verdict so the site can track speed-versus-size
+  Pareto improvements.
+- **Structured `reason_code`.** Every rejection or fault carries a fixed allowlisted `reason_code`
+  (`guard_rejected`, `compile_error`, `timeout`, `wrong_answer`, `out_of_fuel`, `trapped`,
+  `margin_too_small`, or `fault`) so diagnostics never depend on free-form text.
+- **Compiler resource limits.** Compilation runs with a cleared environment, a 180-second timeout,
+  a 4 MiB cap (`MAX_WASM_BYTES`) on `out.wasm` before reading it into memory (followed by the
+  1 MiB `module::vet` limit), and on Linux a 2 GiB virtual memory limit (`ulimit -v 2097152`) on
+  the `rustc` child process.
+
 ## How the record moves
 
 Every submission replaces the same file, `targets/<name>/holder.rs`. The file that lands is

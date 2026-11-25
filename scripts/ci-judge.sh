@@ -14,8 +14,10 @@ printf '%s' "$PR" | grep -Eqx '[1-9][0-9]{0,6}' || { echo "bad pull request numb
 
 # write <verdict> <reason> [json object with more fields]
 write() {
-  jq -n --arg verdict "$1" --arg reason "$2" --argjson pr "$PR" --arg run_url "$RUN_URL" \
-    --argjson more "${3:-{\}}" '$more + {verdict: $verdict, reason: $reason, pr: $pr, run_url: $run_url}' \
+  local code="fault"
+  [ "$1" = "REJECTED" ] && code="guard_rejected"
+  jq -n --arg verdict "$1" --arg reason "$2" --arg reason_code "$code" --argjson pr "$PR" --arg run_url "$RUN_URL" \
+    --argjson more "${3:-{\}}" '$more + {verdict: $verdict, reason: $reason, reason_code: ($more.reason_code // $reason_code), pr: $pr, run_url: $run_url}' \
     > "$OUT/final.json"
   echo "$1 ($2)"
 }
@@ -97,12 +99,21 @@ if [ "$(git hash-object "$OUT/candidate.rs")" != "$blob" ]; then
   exit 0
 fi
 
+baseline_args=()
+if [ -s "$OUT/api/steps.json" ]; then
+  baseline=$(jq -r --arg t "$target" '(.steps // [] | map(select(.target == $t)) | .[0].baseline_fuel // "") | tostring' "$OUT/api/steps.json" 2>/dev/null || true)
+  if printf '%s' "$baseline" | grep -Eqx '[0-9]{1,18}'; then
+    baseline_args=(--baseline-fuel "$baseline")
+  fi
+fi
+
 cargo build --release --locked --quiet
 set +e
 # Six sets of fresh inputs: the first decides nothing alone. The candidate must answer all of
 # them correctly, and the margin is taken over all six together.
 env -u GH_TOKEN ./target/release/sdcheck judge --target "$target" --confirm 5 \
-  --candidate "$OUT/candidate.rs" --holder "targets/$target/holder.rs" --json "$OUT/verdict.json"
+  --candidate "$OUT/candidate.rs" --holder "targets/$target/holder.rs" \
+  "${baseline_args[@]}" --json "$OUT/verdict.json"
 set -e
 if [ ! -s "$OUT/verdict.json" ]; then
   write FAULT "the checker produced no verdict" "$meta"

@@ -3,12 +3,12 @@
 //!   sdcheck targets
 //!   sdcheck guard <file>
 //!   sdcheck judge --target <name> --candidate <file> --holder <file> [--seed <n>]
-//!                 [--confirm <n>] [--json <file>]
+//!                 [--confirm <n>] [--baseline-fuel <n>] [--json <file>]
 //!   sdcheck selftest
 //!
 //! Exit codes: 0 a verdict was reached (read it), 1 FAULT, 2 bad usage.
 
-use sdcheck::judge::{judge_runs, Report};
+use sdcheck::judge::{judge_runs_with_baseline, Report};
 use sdcheck::rng::Rng;
 use sdcheck::targets::{self, Target};
 use sdcheck::{build, guard, run};
@@ -35,7 +35,7 @@ fn main() -> ExitCode {
 
 fn usage() -> String {
     "usage: sdcheck targets | guard <file> | judge --target <name> --candidate <file> \
-     --holder <file> [--seed <n>] [--confirm <n>] [--json <file>] | selftest"
+     --holder <file> [--seed <n>] [--confirm <n>] [--baseline-fuel <n>] [--json <file>] | selftest"
         .to_string()
 }
 
@@ -78,8 +78,15 @@ fn judge_command(args: &[String]) -> Result<ExitCode, String> {
         None => sdcheck::fresh_seed(),
     };
     let seeds = seeds_for(seed, flag(args, "--confirm"))?;
+    let baseline_fuel = match flag(args, "--baseline-fuel") {
+        Some(text) => Some(
+            text.parse::<u64>()
+                .map_err(|_| "--baseline-fuel must be a number".to_string())?,
+        ),
+        None => None,
+    };
     let work = sdcheck::work_dir();
-    let report = judge_runs(target, &candidate, &holder, &seeds, &work);
+    let report = judge_runs_with_baseline(target, &candidate, &holder, &seeds, &work, baseline_fuel);
     if std::env::var("SD_KEEP").is_err() {
         let _ = std::fs::remove_dir_all(&work);
     }
@@ -114,19 +121,32 @@ fn print_report(report: &Report) {
     }
     if report.holder_fuel > 0 {
         println!(
-            "target {}  seed {}  runs {}  cases {}  fuel {} vs record holder {}",
+            "target {}  seed {}  runs {}  cases {}  fuel {} vs record holder {}  margin {} bps",
             report.target,
             report.seed,
             report.runs,
             report.cases,
             report.candidate_fuel,
-            report.holder_fuel
+            report.holder_fuel,
+            report.required_margin_bps
         );
     } else {
         println!(
             "target {}  seed {}  cases {}",
             report.target, report.seed, report.cases
         );
+    }
+    if report.candidate_wasm_bytes > 0 || report.holder_wasm_bytes > 0 {
+        println!(
+            "wasm bytes: candidate {} vs record holder {}",
+            report.candidate_wasm_bytes, report.holder_wasm_bytes
+        );
+    }
+    if !report.class_fuel.is_empty() {
+        println!("class fuel:");
+        for (class, (cand, hold)) in &report.class_fuel {
+            println!("  {class:<20} {cand} vs {hold}");
+        }
     }
 }
 

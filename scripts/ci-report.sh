@@ -21,12 +21,32 @@ pick() { field "$1" | grep -Ex "$2" || true; }
 verdict=$(pick verdict 'ACCEPTED|REJECTED|FAULT')
 verdict=${verdict:-FAULT}
 reason=$(field reason | tr -cd '[:alnum:] .,:()<>_/`-' | cut -c1-200)
+reason_code=$(pick reason_code '[a-z_]{0,32}')
 head=$(pick head_sha '[0-9a-f]{40}')
 target=$(pick target '[a-z0-9_]{1,40}')
 step=$(pick step '[1-9][0-9]{0,8}')
 author=$(pick author '[A-Za-z0-9][A-Za-z0-9-]{0,38}')
 candidate=$(pick candidate_fuel '[0-9]{1,18}')
 holder=$(pick holder_fuel '[0-9]{1,18}')
+wasm_bytes=$(pick candidate_wasm_bytes '[0-9]{1,9}')
+wasm_bytes=${wasm_bytes:-0}
+class_fuel=$(jq -c '
+  (.class_fuel // {}) |
+  if type == "object" then
+    to_entries
+    | map(
+        select(
+          (.key | test("^[A-Za-z0-9_+ -]{1,40}$")) and
+          (.value | type == "object") and
+          (.value.candidate | type == "number" and . >= 0 and . <= 1000000000000000000 and . == floor) and
+          (.value.holder | type == "number" and . >= 0 and . <= 1000000000000000000 and . == floor)
+        )
+        | {key, value: {candidate: .value.candidate, holder: .value.holder}}
+      )
+    | from_entries
+  else {} end
+' "$file" 2>/dev/null || echo '{}')
+[ -n "$class_fuel" ] || class_fuel='{}'
 seed=$(pick seed '[0-9]{1,20}')
 cases=$(pick cases '[0-9]{1,6}')
 runs=$(pick runs '[0-9]{1,3}')
@@ -102,10 +122,12 @@ if [ "$verdict" = ACCEPTED ] && [ -n "$head" ] && [ -n "$target" ] && [ -n "$ste
     1)
       verdict=STALE
       reason="the record moved while this was checked: rebase your one commit onto main and push again"
+      reason_code=""
       ;;
     *)
       verdict=FAULT
       reason="the record could not be written"
+      reason_code="fault"
       ;;
   esac
 fi
@@ -138,10 +160,13 @@ if [ -n "${SWARMDESK_URL:-}" ] && [ -n "${VERDICT_SECRET:-}" ] && [ -n "$author"
   payload=$(mktemp)
   jq -cn --arg problem "$PROBLEM" --argjson pr "$PR" --arg head_sha "$head" --arg author "$author" \
     --arg step "$step" --arg target "$target" --arg verdict "$verdict" --arg reason "$reason" \
-    --arg candidate "$candidate" --arg holder "$holder" --arg seed "$seed" --argjson merged "$merged" \
-    --arg run_url "$run_url" \
+    --arg reason_code "$reason_code" --arg candidate "$candidate" --arg holder "$holder" \
+    --arg wasm_bytes "$wasm_bytes" --argjson class_fuel "$class_fuel" \
+    --arg seed "$seed" --argjson merged "$merged" --arg run_url "$run_url" \
     '{problem: $problem, pr: $pr, head_sha: $head_sha, author: $author, step: ($step | tonumber? // null),
-      target: $target, verdict: $verdict, reason: $reason, candidate_fuel: ($candidate | tonumber? // 0),
-      holder_fuel: ($holder | tonumber? // 0), seed: $seed, merged: $merged, run_url: $run_url}' > "$payload"
+      target: $target, verdict: $verdict, reason: $reason, reason_code: $reason_code,
+      candidate_fuel: ($candidate | tonumber? // 0), holder_fuel: ($holder | tonumber? // 0),
+      wasm_bytes: ($wasm_bytes | tonumber? // 0), class_fuel: $class_fuel,
+      seed: $seed, merged: $merged, run_url: $run_url}' > "$payload"
   "$here/send-verdict.sh" "$payload"
 fi

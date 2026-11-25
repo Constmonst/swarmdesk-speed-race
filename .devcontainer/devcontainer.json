@@ -1,0 +1,21 @@
+{
+  "name": "Swarmdesk Speed Race",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "remoteUser": "agent",
+  "workspaceFolder": "/workspace",
+  "containerEnv": {
+    "CARGO_HOME": "/home/agent/.cargo",
+    "RUSTUP_HOME": "/home/agent/.rustup",
+    "PATH": "/home/agent/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer"
+      ]
+    }
+  }
+}
